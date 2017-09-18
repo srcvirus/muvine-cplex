@@ -1,4 +1,4 @@
-CPLEX_ROOT = /opt/ibm/ILOG/CPLEX_Studio125
+# CPLEX_ROOT = /opt/ibm/ILOG/CPLEX_Studio125
 LIB_PATHS = -L$(CPLEX_ROOT)/cplex/lib/x86-64_sles10_4.1/static_pic -L$(CPLEX_ROOT)/concert/lib/x86-64_sles10_4.1/static_pic
 
 INCLUDE_PATHS = -I$(CPLEX_ROOT)/cplex/include -I$(CPLEX_ROOT)/concert/include

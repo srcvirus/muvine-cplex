@@ -55,6 +55,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // m_pq_k_ -> Number of modules of type k installed on link (p, q).
+  DEBUG("Initializing m_pq_k_\n");
   m_pq_k_.resize(otn_->node_count());
   for (int p = 0; p < otn_->node_count(); ++p) {
     m_pq_k_[p].resize(otn_->node_count());
@@ -75,6 +76,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   psi_pqkj_abl_ = IloIntVar7dArray(env_, otn_->node_count());
 
   // Initialize x and y.
+  DEBUG("Initializing x and y.\n");
   for (int m = 0; m < vn_->node_count(); ++m) {
     x_mn_uvi_[m] = IloIntVar4dArray(env_, vn_->node_count());
     y_mu_[m] = IloIntVarArray(env_, ip_->node_count(), 0, 1);
@@ -101,6 +103,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize z.
+  DEBUG("Initializing z.\n");
   for (int u = 0; u < ip_->node_count(); ++u) {
     z_uvi_pqkj_[u] = IloIntVar6dArray(env_, ip_->node_count());
     for (int v = 0; v < ip_->node_count(); ++v) {
@@ -129,6 +132,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize zeta, phi, and psi.
+  DEBUG("Initializing zeta, phi, and psi.\n");
   for (int p = 0; p < otn_->node_count(); ++p) {
     zeta_pq_kj_[p] = IloIntVar3dArray(env_, otn_->node_count());
     phi_pqkj_l_[p] = IloIntVar4dArray(env_, otn_->node_count());
@@ -173,12 +177,14 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize input variables.
+  DEBUG("Initializing input variables.\n");
   l_mu_ = IloInt2dArray(env_, vn_->node_count());
   tau_up_ = IloInt2dArray(env_, ip_->node_count());
   omega_pq_kj_ = IloInt4dArray(env_, otn_->node_count());
   ip_link_uvi_ = IloInt3dArray(env_, ip_->node_count());
 
   // Initialize location constraint.
+  DEBUG("Initializing location constraint.\n");
   for (int m = 0; m < vn_->node_count(); ++m) {
     l_mu_[m] = IloIntArray(env_, ip_->node_count(), 0, 1);
     for (int u = 0; u < ip_->node_count(); ++u) {
@@ -191,6 +197,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize IP link input variable.
+  DEBUG("Initializing IP link input variable.\n");
   for (int u = 0; u < ip_->node_count(); ++u) {
     ip_link_uvi_[u] = IloInt2dArray(env_, ip_->node_count());
     for (int v = 0; v < ip_->node_count(); ++v) {
@@ -208,6 +215,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize IP to OTN attachment variable.
+  DEBUG("Initializing IP to OTN attachment variable.\n");
   for (int u = 0; u < ip_->node_count(); ++u) {
     tau_up_[u] = IloIntArray(env_, otn_->node_count(), 0, 1);
     for (int p = 0; p < otn_->node_count(); ++p) {
@@ -217,6 +225,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   }
 
   // Initialize omega variable.
+  DEBUG("Initializing omega variable.\n");
   for (int p = 0; p < otn_->node_count(); ++p) {
     omega_pq_kj_[p] = IloInt3dArray(env_, otn_->node_count());
     for (int q = 0; q < otn_->node_count(); ++q) {
