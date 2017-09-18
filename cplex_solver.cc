@@ -111,7 +111,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
     gamma_uvi_[u] = IloIntVar2dArray(env_, ip_->node_count());
     for (int v = 0; v < ip_->node_count(); ++v) {
       z_uvi_pqkj_[u][v] = IloIntVar5dArray(env_, ip_->GetPortCount(u));
-      gamma_uvi_[u][v] = IloIntVarArray(env_, ip_->GetPortCount(u), 0, 1);
+      gamma_uvi_[u][v] = IloIntVarArray(env_, ip_->GetPortCount(u) + 1, 0, 1);
       for (int order = 0; order < ip_->GetPortCount(u); ++order) {
         z_uvi_pqkj_[u][v][order] = IloIntVar4dArray(env_, otn_->node_count());
         int gamma_indices[] = {u, v, order};
