@@ -239,7 +239,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
       omega_pq_kj_[p][q] = IloInt2dArray(env_, max_k_);
       for (int k = 0; k < max_k_; ++k) {
         int n_mods = otn_->GetNumModulesOnEdge(p, q, k);
-        omega_pq_kj_[p][q][k] = IloIntArray(env_, n_mods, 0, 1);
+        omega_pq_kj_[p][q][k] = IloIntArray(env_, n_mods);
         for (int j = 0; j < n_mods; ++j) {
           if (otn_->module_capacities()->at(k) > 
               otn_->GetModuleResidualCapacity(p, q, k, j))
