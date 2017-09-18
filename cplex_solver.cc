@@ -72,6 +72,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   x_mn_uvi_ = IloIntVar5dArray(env_, vn_->node_count());
   y_mu_ = IloIntVar2dArray(env_, vn_->node_count());
   z_uvi_pqkj_ = IloIntVar7dArray(env_, ip_->node_count());
+  gamma_uvi_ = IloIntVar3dArray(env_, ip_->node_count());
   zeta_pq_kj_ = IloIntVar4dArray(env_, otn_->node_count());
   phi_pqkj_l_ = IloIntVar5dArray(env_, otn_->node_count());
   psi_pqkj_abl_ = IloIntVar7dArray(env_, otn_->node_count());
@@ -103,14 +104,19 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
     }
   }
 
-  // Initialize z.
+  // Initialize z and gamma.
   DEBUG("Initializing z.\n");
   for (int u = 0; u < ip_->node_count(); ++u) {
     z_uvi_pqkj_[u] = IloIntVar6dArray(env_, ip_->node_count());
+    gamma_uvi_[u] = IloIntVar2dArray(env_, ip_->node_count());
     for (int v = 0; v < ip_->node_count(); ++v) {
       z_uvi_pqkj_[u][v] = IloIntVar5dArray(env_, ip_->GetPortCount(u));
+      gamma_uvi_[u][v] = IloIntVarArray(env_, ip_->GetPortCount(u), 0, 1);
       for (int order = 0; order < ip_->GetPortCount(u); ++order) {
         z_uvi_pqkj_[u][v][order] = IloIntVar4dArray(env_, otn_->node_count());
+        int gamma_indices[] = {u, v, order};
+        auto vname = GetVariableName("gamma", 3, gamma_indices);
+        gamma_uvi_[u][v][order] = IloIntVar(env_, 0, 1, vname.c_str());
         for (int p = 0; p < otn_->node_count(); ++p) {
           z_uvi_pqkj_[u][v][order][p] =
               IloIntVar3dArray(env_, otn_->node_count());
