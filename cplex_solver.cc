@@ -434,7 +434,7 @@ void MuViNESolver::BuildModel() {
             for (int k = 0; k < max_k_; ++k) {
               for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
                 sum += (z_uvi_pqkj_[u][v][order][p][q][k][j] -
-                        z_uvi_pqkj_[u][v][order][q][p][j][k]);
+                        z_uvi_pqkj_[u][v][order][q][p][k][j]);
               }
             }
           }
