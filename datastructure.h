@@ -304,7 +304,7 @@ class OTNGraph {
 
   int GetModuleCost(int module_type) const {
     if (module_type >= module_cost_->size())
-      return NIL;
+      return INF;
     return module_cost_->at(module_type);
   }
   
@@ -315,6 +315,7 @@ class OTNGraph {
       if (end_point.node_id() == v)
         return end_point.module_res_cap()[module_type][module_instance];
     }
+    return 0;
   }
 
   int GetNumModulesOnEdge(int u, int v, int module_type) {
@@ -323,6 +324,7 @@ class OTNGraph {
       if (end_point.node_id() == v)
         return end_point.num_modules_k()[module_type];
     }
+    return 0;
   }
 
   inline int GetNodeDegree(int u) const { return adj_list_->at(u).size(); }
