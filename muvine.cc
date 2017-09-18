@@ -110,9 +110,9 @@ int main(int argc, char* argv[]) {
 
   vne_sbuilder.PrintSolutionStatus((config->vn_topology_file + ".status").c_str());
   if (success) {
+    vne_sbuilder.PrintCost((config->vn_topology_file + ".cost").c_str());
     vne_sbuilder.PrintVNodeMapping((config->vn_topology_file + ".nmap").c_str());
     vne_sbuilder.PrintVLinkMapping((config->vn_topology_file + ".emap").c_str());
-    vne_sbuilder.PrintCost((config->vn_topology_file + ".cost").c_str());
     vne_sbuilder.PrintNewIPLinks((config->vn_topology_file + ".new_ip").c_str());
     vne_sbuilder.PrintNewOTNModules((config->vn_topology_file + ".new_otn").c_str());
   }
