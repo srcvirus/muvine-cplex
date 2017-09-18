@@ -22,7 +22,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   otn_ = otn;
   dwdm_ = dwdm;
   vn_ = vn;
-  location_constraint_ = lc;
+  location_constraints_ = lc;
   ip_otn_ = ip_otn;
   otn_dwdm_ = otn_dwdm;
   max_k_ = otn_->module_capacities()->size();
