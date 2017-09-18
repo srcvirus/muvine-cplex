@@ -22,12 +22,13 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   otn_ = otn;
   dwdm_ = dwdm;
   vn_ = vn;
+  location_constraint_ = lc;
   ip_otn_ = ip_otn;
   otn_dwdm_ = otn_dwdm;
   max_k_ = otn_->module_capacities()->size();
   w_ = dwdm_->num_wavelengths();
   c_ = dwdm_->wavelength_capacity();
-
+  
   // Initialize bandwidth matrix.
   DEBUG("Initializing bw matrix.\n");
   b_uvi_.resize(ip_->node_count());
