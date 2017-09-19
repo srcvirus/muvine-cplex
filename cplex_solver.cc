@@ -337,7 +337,7 @@ void MuViNESolver::BuildModel() {
                 (x_mn_uvi_[m][n][u][v][order] - x_mn_uvi_[m][n][v][u][order]);
           }
         }
-        constraints_.add(sum <= y_mu_[m][u] - y_mu_[n][u]);
+        constraints_.add((sum == (y_mu_[m][u] - y_mu_[n][u])));
       }
     }
   }
