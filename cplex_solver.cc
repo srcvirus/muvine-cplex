@@ -15,7 +15,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
                            OverlayMapping<otn_edge_map_t>* ip_otn,
                            OverlayMapping<dwdm_edge_map_t>* otn_dwdm) {
   model_ = IloModel(env_);
-  cplex_ = IloCplex(env_);
+  cplex_ = IloCplex(model_);
   constraints_ = IloConstraintArray(env_);
   objective_ = IloIntExpr(env_);
   ip_ = ip;
