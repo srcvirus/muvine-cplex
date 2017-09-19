@@ -82,7 +82,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   for (int m = 0; m < vn_->node_count(); ++m) {
     x_mn_uvi_[m] = IloIntVar4dArray(env_, vn_->node_count());
     y_mu_[m] = IloIntVarArray(env_, ip_->node_count(), 0, 1);
-    for (int u = 0; u < vn_->node_count(); ++u) {
+    for (int u = 0; u < ip_->node_count(); ++u) {
       int y_indices[] = {m, u};
       auto var_name = GetVariableName("y", 2, y_indices);
       y_mu_[m][u] = IloIntVar(env_, 0, 1, var_name.c_str());
