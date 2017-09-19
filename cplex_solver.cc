@@ -279,7 +279,7 @@ void MuViNESolver::BuildModel() {
     for (auto vend_point : m_neighbors) {
       int n = vend_point.node_id();
       if (m < n) continue;
-      IloIntExpr sum_c4(env_);
+      IloIntExpr sum_c5(env_);
       for (int u = 0; u < ip_->node_count(); ++u) {
         for (int v = 0; v < ip_->node_count(); ++v) {
           if (u == v) continue;
@@ -289,15 +289,15 @@ void MuViNESolver::BuildModel() {
                              gamma_uvi_[u][v][order] + gamma_uvi_[v][u][order] +
                                  ip_link_uvi_[u][v][order]);
           }
-          IloIntExpr sum_c5(env_);
+          IloIntExpr sum_c6(env_);
           for (int order = 0; order < ip_->GetPortCount(u); ++order) {
-            sum_c4 += x_mn_uvi_[m][n][u][v][order];
             sum_c5 += x_mn_uvi_[m][n][u][v][order];
+            sum_c6 += x_mn_uvi_[m][n][u][v][order];
           }
-          constraints_.add(sum_c4 >= 1);
-          constraints_.add(sum_c5 <= 1);
+          constraints_.add(sum_c6 <= 1);
         }
       }
+      constraints_.add(sum_c5 >= 1);
     }
   }
 
