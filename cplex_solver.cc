@@ -278,6 +278,7 @@ void MuViNESolver::BuildModel() {
     auto& m_neighbors = vn_->adj_list()->at(m);
     for (auto vend_point : m_neighbors) {
       int n = vend_point.node_id();
+      if (m < n) continue;
       IloIntExpr sum_c4(env_);
       for (int u = 0; u < ip_->node_count(); ++u) {
         for (int v = 0; v < ip_->node_count(); ++v) {
@@ -310,6 +311,7 @@ void MuViNESolver::BuildModel() {
           auto& m_neighbors = vn_->adj_list()->at(m);
           for (auto vend_point : m_neighbors) {
             int n = vend_point.node_id();
+            if (m < n) continue;
             long b_mn = vend_point.bandwidth();
             sum += (x_mn_uvi_[m][n][u][v][order] * b_mn);
           }
@@ -324,6 +326,7 @@ void MuViNESolver::BuildModel() {
     auto& m_neighbors = vn_->adj_list()->at(m);
     for (auto vend_point : m_neighbors) {
       int n = vend_point.node_id();
+      if (m < n) continue;
       for (int u = 0; u < ip_->node_count(); ++u) {
         IloIntExpr sum(env_);
         for (int v = 0; v < ip_->node_count(); ++v) {
