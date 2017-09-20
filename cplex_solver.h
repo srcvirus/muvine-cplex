@@ -23,7 +23,8 @@ class MuViNESolver {
   MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm, IPGraph* vn,
                std::vector<std::vector<int>>* lc,
                OverlayMapping<otn_edge_map_t>* ip_otn,
-               OverlayMapping<dwdm_edge_map_t>* otn_dwdm);
+               OverlayMapping<dwdm_edge_map_t>* otn_dwdm,
+               OverlayMapping<ip_edge_map_t>* otn_link_mapping);
   IloEnv& env() { return env_; }
   IloModel& model() { return model_; }
   IloCplex& cplex() { return cplex_; }
@@ -54,7 +55,7 @@ class MuViNESolver {
   std::vector<std::vector<int>>* location_constraints_;
   OverlayMapping<otn_edge_map_t>* ip_otn_;
   OverlayMapping<dwdm_edge_map_t>* otn_dwdm_;
-
+  OverlayMapping<ip_edge_map_t>* otn_link_mapping_;
   // Input constants.
   int max_k_;
   int w_;

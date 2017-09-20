@@ -85,6 +85,8 @@ unique_ptr<configuration> ParseConfigurationFile(const char* filename) {
       config->ip_node_mapping_file = value;
     } else if (key == "otn_link_mapping_file") {
       config->otn_link_mapping_file = value;
+    } else if (key == "otn_module_mapping_file") {
+      config->otn_module_mapping_file = value;
     } else if (key == "otn_node_mapping_file") {
       config->otn_node_mapping_file = value;
     }
@@ -288,6 +290,32 @@ unique_ptr<OverlayMapping<dwdm_edge_map_t>> InitializeOTNDWDMMappingFromFile(
           mapping->edge_map[overlay_link].size());
   }
   DEBUG("Embedding of %d links read successfully\n", mapping->edge_map.size());
+  return std::move(mapping);
+}
+
+unique_ptr<OverlayMapping<ip_edge_map_t>> InitializeOTNLinkMappingFromFile(
+    const char* otn_lmap_file) {
+  DEBUG("Reading OTN Link mapping from: %s\n", otn_lmap_file);
+  unique_ptr<OverlayMapping<ip_edge_map_t>> mapping(
+    new OverlayMapping<ip_edge_map_t>());
+  csv_vector_ptr_t csv_vector = ReadCSVFile(otn_lmap_file);
+  if (csv_vector.get() == nullptr)
+    return nullptr;
+  for (int i = 0; i < csv_vector->size(); ++i) {
+    const auto& row = csv_vector->at(i);
+    int p = std::stoi(row[0].c_str());
+    int q = std::stoi(row[1].c_str());
+    int a = std::stoi(row[2].c_str());
+    int b = std::stoi(row[3].c_str());
+    ip_edge_t overlay_link(p, q, 0);
+    ip_edge_t reverse_overlay_link(q, p, 0);
+    ip_edge_t underlay_link(a, b, 0);
+    mapping->edge_map[overlay_link].push_back(underlay_link); 
+    mapping->edge_map[reverse_overlay_link].push_back(underlay_link);
+    DEBUG("Current OTN mapping path length of (%d, %d) is %u\n", 
+          p, q, mapping->edge_map[overlay_link].size());   
+  }
+  DEBUG("Mapping of %u OTN links read successfully\n", mapping->edge_map.size());
   return std::move(mapping);
 }
 

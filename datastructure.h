@@ -32,6 +32,7 @@ typedef struct configuration {
   string ip_port_info_file;
   string ip_node_mapping_file;
   string otn_link_mapping_file;
+  string otn_module_mapping_file;
   string otn_node_mapping_file;
 } configuration;
 

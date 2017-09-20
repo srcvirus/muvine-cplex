@@ -106,17 +106,21 @@ void VNESolutionBuilder::PrintNewOTNModules(const char *filename) {
         for (int j = 0; j < kNumModulesOnLink; ++j) {
           if (fabs(cplex.getValue(zeta_pq_kj[p][q][k][j]) - 0) < EPS)
             continue;
+          printf("zeta_pq_kj[%d][%d][%d][%d] = 1\n", p, q, k, j);
           for (int l = 0; l < kNumLambdas; ++l) {
             if (fabs(cplex.getValue(phi_pqkj_l[p][q][k][j][l]) - 0) < EPS)
               continue;
-            for (int a = 0; a < dwdm_topology_->node_count(); ++a) {
-              for (int b = 0; b < dwdm_topology_->node_count(); ++b) {
-                if (a == b) continue;
-                if (fabs(cplex.getValue(psi_pqkj_abl[p][q][k][j][a][b][l]) - 1) < EPS) {
-                  printf("New OTN Module %d of type %d on (%d, %d) --> DWDM Link (%d, %d) with Lambda = %d\n", j, k, p, q, a, b, l);
-                  if (outfile) {
-                    printf("%d,%d,%d,%d,%d,%d,%d\n", p, q, k, j, a, b, l);
-                  }
+            printf("phi_pqkj_l[%d][%d][%d][%d][%d] = 1\n", p, q, k, j, l);
+            auto& dwdm_path = otn_link_mapping_->edge_map[ip_edge_t(p, q, 0)];
+            for (auto it = otn_link_mapping_->edge_map.begin(); it != otn_link_mapping_->edge_map.end(); ++it) {
+              printf("%d %d %d\n", it->first.first, it->first.second, it->second.size());
+	    }
+            for (auto dwdm_link : dwdm_path) {
+              int a = dwdm_link.first, b = dwdm_link.second;
+              if (fabs(cplex.getValue(psi_pqkj_abl[p][q][k][j][a][b][l]) - 1) < EPS) {
+                printf("New OTN Module %d of type %d on (%d, %d) --> DWDM Link (%d, %d) with Lambda = %d\n", j, k, p, q, a, b, l);
+                if (outfile) {
+                  printf("%d,%d,%d,%d,%d,%d,%d\n", p, q, k, j, a, b, l);
                 }
               }
             }

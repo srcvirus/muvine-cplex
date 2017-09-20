@@ -13,7 +13,8 @@ std::string GetVariableName(const std::string prefix, int dimension,
 MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
                            IPGraph* vn, std::vector<std::vector<int>>* lc,
                            OverlayMapping<otn_edge_map_t>* ip_otn,
-                           OverlayMapping<dwdm_edge_map_t>* otn_dwdm) {
+                           OverlayMapping<dwdm_edge_map_t>* otn_dwdm,
+                           OverlayMapping<ip_edge_map_t>* otn_link_mapping) {
   model_ = IloModel(env_);
   cplex_ = IloCplex(model_);
   constraints_ = IloConstraintArray(env_);
@@ -25,6 +26,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   location_constraints_ = lc;
   ip_otn_ = ip_otn;
   otn_dwdm_ = otn_dwdm;
+  otn_link_mapping_ = otn_link_mapping;
   max_k_ = otn_->module_capacities()->size();
   w_ = dwdm_->num_wavelengths();
   c_ = dwdm_->wavelength_capacity();
@@ -241,13 +243,27 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
         int n_mods = otn_->GetNumModulesOnEdge(p, q, k);
         omega_pq_kj_[p][q][k] = IloIntArray(env_, n_mods);
         for (int j = 0; j < n_mods; ++j) {
-          if (otn_->module_capacities()->at(k) > 
-              otn_->GetModuleResidualCapacity(p, q, k, j))
-            omega_pq_kj_[p][q][k][j] = 1;
-          else
-            omega_pq_kj_[p][q][k][j] = 0;
+          omega_pq_kj_[p][q][k][j] = 0;
+          // if (otn_->module_capacities()->at(k) > 
+          //     otn_->GetModuleResidualCapacity(p, q, k, j))
+          //   omega_pq_kj_[p][q][k][j] = 1;
+          // else
+          //   omega_pq_kj_[p][q][k][j] = 0;
         }
       }
+    }
+  }
+  
+  DEBUG("Populating omega.\n");
+  for (auto it = ip_otn_->edge_map.begin(); 
+       it != ip_otn_->edge_map.end(); ++it) {
+    auto& otn_path = it->second;
+    for (auto otn_edge : otn_path) {
+      int p = otn_edge.first;
+      int q = otn_edge.second;
+      int k = otn_edge.module_type;
+      int j = otn_edge.module_instance;
+      omega_pq_kj_[p][q][k][j] = 1;
     }
   }
 }
@@ -292,7 +308,12 @@ void MuViNESolver::BuildModel() {
           IloIntExpr sum_c6(env_);
           for (int order = 0; order < ip_->GetPortCount(u); ++order) {
             sum_c5 += x_mn_uvi_[m][n][u][v][order];
-            sum_c6 += x_mn_uvi_[m][n][u][v][order];
+            sum_c6 += x_mn_uvi_[m][n][u][v][order];	    
+	    for (int other_order = 0; other_order < ip_->GetPortCount(v); ++other_order) {
+	        constraints_.add(IloIfThen(env_, x_mn_uvi_[m][n][u][v][order] == 1, x_mn_uvi_[m][n][v][u][other_order] == 0));
+        	constraints_.add(IloIfThen(env_, x_mn_uvi_[m][n][v][u][other_order] == 1, x_mn_uvi_[m][n][u][v][order] == 0));
+   	        constraints_.add(gamma_uvi_[u][v][order] + gamma_uvi_[v][u][other_order] <= 1);    
+	    }
           }
           constraints_.add(sum_c6 <= 1);
         }
@@ -411,8 +432,8 @@ void MuViNESolver::BuildModel() {
                 sum +=
                     z_uvi_pqkj_[u][v][order][p][q][k][j] * b_uvi_[u][v][order];
                 // (14)
-                constraints_.add(zeta_pq_kj_[p][q][k][j] <=
-                                z_uvi_pqkj_[u][v][order][p][q][k][j]);
+                // constraints_.add(zeta_pq_kj_[p][q][k][j] <=
+                //                 z_uvi_pqkj_[u][v][order][p][q][k][j]);
               }
             }
           }
@@ -438,6 +459,13 @@ void MuViNESolver::BuildModel() {
               for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
                 sum += (z_uvi_pqkj_[u][v][order][p][q][k][j] -
                         z_uvi_pqkj_[u][v][order][q][p][k][j]);
+                for (int other_k = 0; other_k < max_k_; ++other_k) {
+		  for (int other_j = 0; other_j < m_pq_k_[p][q][other_k]; ++other_j) {
+                    constraints_.add(IloIfThen(env_, z_uvi_pqkj_[u][v][order][p][q][k][j] == 1, z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 0));
+                    constraints_.add(IloIfThen(env_, z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 1, z_uvi_pqkj_[u][v][order][p][q][k][j] == 0));
+		    constraints_.add(zeta_pq_kj_[p][q][k][j] + zeta_pq_kj_[q][p][other_k][other_j] <= 1);
+		  }
+		}
               }
             }
           }
@@ -513,10 +541,11 @@ void MuViNESolver::BuildModel() {
     auto& p_neighbors = otn_->adj_list()->at(p);
     for (auto end_point : p_neighbors) {
       int q = end_point.node_id();
+      auto& dwdm_path = otn_link_mapping_->edge_map[ip_edge_t(p, q, 0)];
       for (int k = 0; k < max_k_; ++k) {
         for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
-          auto& dwdm_path =
-              otn_dwdm_->edge_map[otn_edge_t(p, q, k, j)];
+          // auto& dwdm_path =
+          //     otn_dwdm_->edge_map[otn_edge_t(p, q, k, j)];
           for (auto link : dwdm_path) {
             int a = link.first, b = link.second;
             auto wavelength_mask = dwdm_->GetWavelengthMask(a, b);

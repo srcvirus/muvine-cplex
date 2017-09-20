@@ -7,12 +7,13 @@ class VNESolutionBuilder {
  public:
   VNESolutionBuilder(MuViNESolver *vne_solver_ptr, IPGraph *ip_topology,
                      OTNGraph *otn_topology, DWDMGraph* dwdm_topology, 
-                     IPGraph *vn_topology)
+                     IPGraph *vn_topology, OverlayMapping<ip_edge_map_t>* otn_link_mapping)
       : vne_solver_ptr_(vne_solver_ptr),
         ip_topology_(ip_topology),
         otn_topology_(otn_topology),
         dwdm_topology_(dwdm_topology),
-        vn_topology_(vn_topology) {}
+        vn_topology_(vn_topology),
+	otn_link_mapping_(otn_link_mapping) {}
 
   // Prints virtual node to IP node mapping on stdout. If filename is not NULL
   // then the same output is written to the corresponding file as well. Each
@@ -53,6 +54,7 @@ class VNESolutionBuilder {
   OTNGraph *otn_topology_;
   DWDMGraph *dwdm_topology_;
   IPGraph *vn_topology_;
+  OverlayMapping<ip_edge_map_t> *otn_link_mapping_;
 };
 
 #endif  // VNE_SOLUTION_BUILDER_H_

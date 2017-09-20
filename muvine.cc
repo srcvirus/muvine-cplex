@@ -62,8 +62,12 @@ int main(int argc, char* argv[]) {
           .release());
   unique_ptr<OverlayMapping<dwdm_edge_map_t>> otn_dwdm_mapping(
       InitializeOTNDWDMMappingFromFile(config->otn_node_mapping_file.c_str(),
-                                    config->otn_link_mapping_file.c_str())
+                                    config->otn_module_mapping_file.c_str())
           .release());
+  unique_ptr<OverlayMapping<ip_edge_map_t>> otn_link_mapping(
+      InitializeOTNLinkMappingFromFile(config->otn_link_mapping_file.c_str())
+          .release());
+
   unique_ptr<IPGraph> vn_topology(
       InitializeIPGraphFromFile(config->vn_topology_file.c_str()).release());
   unique_ptr<std::vector<std::vector<int> > > location_constraint(
@@ -83,7 +87,7 @@ int main(int argc, char* argv[]) {
   unique_ptr<MuViNESolver> muvine_solver(new MuViNESolver(
       ip_topology.get(), otn_topology.get(), dwdm_topology.get(), 
       vn_topology.get(), location_constraint.get(), ip_otn_mapping.get(), 
-      otn_dwdm_mapping.get()));
+      otn_dwdm_mapping.get(), otn_link_mapping.get()));
   auto start_time = std::chrono::high_resolution_clock::now();
   muvine_solver->BuildModel();
   bool success = muvine_solver->Solve();
@@ -100,7 +104,8 @@ int main(int argc, char* argv[]) {
                                   ip_topology.get(),
                                   otn_topology.get(),
                                   dwdm_topology.get(),
-                                  vn_topology.get());
+                                  vn_topology.get(),
+                                  otn_link_mapping.get());
   
   // Print solution time (in seconds) to file.
   FILE *sol_time_file = fopen((config->vn_topology_file + ".time").c_str(), "w");
