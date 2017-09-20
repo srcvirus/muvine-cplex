@@ -6,14 +6,15 @@
 class VNESolutionBuilder {
  public:
   VNESolutionBuilder(MuViNESolver *vne_solver_ptr, IPGraph *ip_topology,
-                     OTNGraph *otn_topology, DWDMGraph* dwdm_topology, 
-                     IPGraph *vn_topology, OverlayMapping<ip_edge_map_t>* otn_link_mapping)
+                     OTNGraph *otn_topology, DWDMGraph *dwdm_topology,
+                     IPGraph *vn_topology,
+                     OverlayMapping<ip_edge_map_t> *otn_link_mapping)
       : vne_solver_ptr_(vne_solver_ptr),
         ip_topology_(ip_topology),
         otn_topology_(otn_topology),
         dwdm_topology_(dwdm_topology),
         vn_topology_(vn_topology),
-	otn_link_mapping_(otn_link_mapping) {}
+        otn_link_mapping_(otn_link_mapping) {}
 
   // Prints virtual node to IP node mapping on stdout. If filename is not NULL
   // then the same output is written to the corresponding file as well. Each
@@ -37,7 +38,7 @@ class VNESolutionBuilder {
   // NULL then output is written to the corresponding file as well. Each line in
   // the output has the following format:
   // New IP Link (<src>, <dst>, <order>) --> OTN link (<otn_src>, <otn_dst>,
-  // <module_type>, <module_instance>). 
+  // <module_type>, <module_instance>).
   // Order is used to break ties for parallel links.
   void PrintNewIPLinks(const char *filename);
 

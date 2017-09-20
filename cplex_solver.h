@@ -38,7 +38,7 @@ class MuViNESolver {
   IloIntVar7dArray& psi_pqkj_abl() { return psi_pqkj_abl_; }
   void BuildModel();
   bool Solve();
-  
+
  private:
   // CPLEX related variables.
   IloEnv env_;

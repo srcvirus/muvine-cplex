@@ -30,7 +30,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   max_k_ = otn_->module_capacities()->size();
   w_ = dwdm_->num_wavelengths();
   c_ = dwdm_->wavelength_capacity();
-  
+
   // Initialize bandwidth matrix.
   DEBUG("Initializing bw matrix.\n");
   b_uvi_.resize(ip_->node_count());
@@ -63,7 +63,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
   for (int p = 0; p < otn_->node_count(); ++p) {
     m_pq_k_[p].resize(otn_->node_count());
     for (int q = 0; q < otn_->node_count(); ++q) {
-      m_pq_k_[p][q].resize(max_k_, 0);  
+      m_pq_k_[p][q].resize(max_k_, 0);
       for (int k = 0; k < max_k_; ++k) {
         m_pq_k_[p][q][k] = otn_->GetNumModulesOnEdge(p, q, k);
       }
@@ -175,8 +175,8 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
               for (int l = 0; l < w_; ++l) {
                 int psi_indices[] = {p, q, k, j, a, b, l};
                 var_name = GetVariableName("psi", 7, psi_indices);
-                psi_pqkj_abl_[p][q][k][j][a][b][l] = IloIntVar(
-                    env_, 0, 1, var_name.c_str());
+                psi_pqkj_abl_[p][q][k][j][a][b][l] =
+                    IloIntVar(env_, 0, 1, var_name.c_str());
               }
             }
           }
@@ -244,7 +244,7 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
         omega_pq_kj_[p][q][k] = IloIntArray(env_, n_mods);
         for (int j = 0; j < n_mods; ++j) {
           omega_pq_kj_[p][q][k][j] = 0;
-          // if (otn_->module_capacities()->at(k) > 
+          // if (otn_->module_capacities()->at(k) >
           //     otn_->GetModuleResidualCapacity(p, q, k, j))
           //   omega_pq_kj_[p][q][k][j] = 1;
           // else
@@ -253,10 +253,10 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
       }
     }
   }
-  
+
   DEBUG("Populating omega.\n");
-  for (auto it = ip_otn_->edge_map.begin(); 
-       it != ip_otn_->edge_map.end(); ++it) {
+  for (auto it = ip_otn_->edge_map.begin(); it != ip_otn_->edge_map.end();
+       ++it) {
     auto& otn_path = it->second;
     for (auto otn_edge : otn_path) {
       int p = otn_edge.first;
@@ -308,12 +308,18 @@ void MuViNESolver::BuildModel() {
           IloIntExpr sum_c6(env_);
           for (int order = 0; order < ip_->GetPortCount(u); ++order) {
             sum_c5 += x_mn_uvi_[m][n][u][v][order];
-            sum_c6 += x_mn_uvi_[m][n][u][v][order];	    
-	    for (int other_order = 0; other_order < ip_->GetPortCount(v); ++other_order) {
-	        constraints_.add(IloIfThen(env_, x_mn_uvi_[m][n][u][v][order] == 1, x_mn_uvi_[m][n][v][u][other_order] == 0));
-        	constraints_.add(IloIfThen(env_, x_mn_uvi_[m][n][v][u][other_order] == 1, x_mn_uvi_[m][n][u][v][order] == 0));
-   	        constraints_.add(gamma_uvi_[u][v][order] + gamma_uvi_[v][u][other_order] <= 1);    
-	    }
+            sum_c6 += x_mn_uvi_[m][n][u][v][order];
+            for (int other_order = 0; other_order < ip_->GetPortCount(v);
+                 ++other_order) {
+              constraints_.add(
+                  IloIfThen(env_, x_mn_uvi_[m][n][u][v][order] == 1,
+                            x_mn_uvi_[m][n][v][u][other_order] == 0));
+              constraints_.add(
+                  IloIfThen(env_, x_mn_uvi_[m][n][v][u][other_order] == 1,
+                            x_mn_uvi_[m][n][u][v][order] == 0));
+              constraints_.add(
+                  gamma_uvi_[u][v][order] + gamma_uvi_[v][u][other_order] <= 1);
+            }
           }
           constraints_.add(sum_c6 <= 1);
         }
@@ -404,8 +410,8 @@ void MuViNESolver::BuildModel() {
                                  gamma_uvi_[u][v][order]);
                 // (12)
                 constraints_.add(z_uvi_pqkj_[u][v][order][p][q][k][j] <=
-                                 zeta_pq_kj_[p][q][k][j] + 
-                                 omega_pq_kj_[p][q][k][j]);
+                                 zeta_pq_kj_[p][q][k][j] +
+                                     omega_pq_kj_[p][q][k][j]);
               }
             }
           }
@@ -460,12 +466,20 @@ void MuViNESolver::BuildModel() {
                 sum += (z_uvi_pqkj_[u][v][order][p][q][k][j] -
                         z_uvi_pqkj_[u][v][order][q][p][k][j]);
                 for (int other_k = 0; other_k < max_k_; ++other_k) {
-		  for (int other_j = 0; other_j < m_pq_k_[p][q][other_k]; ++other_j) {
-                    constraints_.add(IloIfThen(env_, z_uvi_pqkj_[u][v][order][p][q][k][j] == 1, z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 0));
-                    constraints_.add(IloIfThen(env_, z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 1, z_uvi_pqkj_[u][v][order][p][q][k][j] == 0));
-		    constraints_.add(zeta_pq_kj_[p][q][k][j] + zeta_pq_kj_[q][p][other_k][other_j] <= 1);
-		  }
-		}
+                  for (int other_j = 0; other_j < m_pq_k_[p][q][other_k];
+                       ++other_j) {
+                    constraints_.add(IloIfThen(
+                        env_, z_uvi_pqkj_[u][v][order][p][q][k][j] == 1,
+                        z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 0));
+                    constraints_.add(IloIfThen(
+                        env_,
+                        z_uvi_pqkj_[u][v][order][q][p][other_k][other_j] == 1,
+                        z_uvi_pqkj_[u][v][order][p][q][k][j] == 0));
+                    constraints_.add(zeta_pq_kj_[p][q][k][j] +
+                                         zeta_pq_kj_[q][p][other_k][other_j] <=
+                                     1);
+                  }
+                }
               }
             }
           }
@@ -525,8 +539,8 @@ void MuViNESolver::BuildModel() {
             IloIntExpr sum(env_);
             for (int k = 0; k < max_k_; ++k) {
               for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
-                sum += psi_pqkj_abl_[p][q][k][j][a][b][l] * 
-                  otn_->module_capacities()->at(k);
+                sum += psi_pqkj_abl_[p][q][k][j][a][b][l] *
+                       otn_->module_capacities()->at(k);
               }
             }
             constraints_.add(sum <= c_);
@@ -552,7 +566,7 @@ void MuViNESolver::BuildModel() {
             for (int l = 0; l < wavelength_mask.size(); ++l) {
               if (!wavelength_mask[l]) continue;
               constraints_.add(psi_pqkj_abl_[p][q][k][j][a][b][l] ==
-                              phi_pqkj_l_[p][q][k][j][l]);
+                               phi_pqkj_l_[p][q][k][j][l]);
             }
           }
         }
@@ -571,7 +585,8 @@ void MuViNESolver::BuildModel() {
         for (int v = 0; v < ip_->node_count(); ++v) {
           if (u == v) continue;
           for (int order = 0; order < ip_->GetPortCount(u); ++order) {
-            objective_ += (x_mn_uvi_[m][n][u][v][order] * b_mn * cost_uvi_[u][v][order]);
+            objective_ +=
+                (x_mn_uvi_[m][n][u][v][order] * b_mn * cost_uvi_[u][v][order]);
           }
         }
       }
@@ -589,7 +604,9 @@ void MuViNESolver::BuildModel() {
             int q = pend_point.node_id();
             for (int k = 0; k < max_k_; ++k) {
               for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
-                objective_ += (z_uvi_pqkj_[u][v][order][p][q][k][j] * b_uvi_[u][v][order] *  otn_->module_cost()->at(k));
+                objective_ +=
+                    (z_uvi_pqkj_[u][v][order][p][q][k][j] *
+                     b_uvi_[u][v][order] * otn_->module_cost()->at(k));
               }
             }
           }
@@ -611,11 +628,12 @@ void MuViNESolver::BuildModel() {
               int b = aend_point.node_id();
               for (int l = 0; l < aend_point.is_lambda_free().size(); ++l) {
                 if (!aend_point.is_lambda_free()[l]) continue;
-                objective_ += (psi_pqkj_abl_[p][q][k][j][a][b][l] * aend_point.cost());
+                objective_ +=
+                    (psi_pqkj_abl_[p][q][k][j][a][b][l] * aend_point.cost());
               }
             }
           }
-        }        
+        }
       }
     }
   }
@@ -623,7 +641,6 @@ void MuViNESolver::BuildModel() {
   model_.add(constraints_);
   model_.add(IloMinimize(env_, objective_));
 }
-
 
 bool MuViNESolver::Solve() {
   int n_threads = sysconf(_SC_NPROCESSORS_ONLN);
