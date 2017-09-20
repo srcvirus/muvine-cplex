@@ -244,11 +244,6 @@ MuViNESolver::MuViNESolver(IPGraph* ip, OTNGraph* otn, DWDMGraph* dwdm,
         omega_pq_kj_[p][q][k] = IloIntArray(env_, n_mods);
         for (int j = 0; j < n_mods; ++j) {
           omega_pq_kj_[p][q][k][j] = 0;
-          // if (otn_->module_capacities()->at(k) >
-          //     otn_->GetModuleResidualCapacity(p, q, k, j))
-          //   omega_pq_kj_[p][q][k][j] = 1;
-          // else
-          //   omega_pq_kj_[p][q][k][j] = 0;
         }
       }
     }
@@ -301,6 +296,7 @@ void MuViNESolver::BuildModel() {
           if (u == v) continue;
           int p_uv = std::min(ip_->GetPortCount(u), ip_->GetPortCount(v));
           for (int order = 0; order < p_uv; ++order) {
+            // (4)
             constraints_.add(x_mn_uvi_[m][n][u][v][order] <=
                              gamma_uvi_[u][v][order] + gamma_uvi_[v][u][order] +
                                  ip_link_uvi_[u][v][order]);
@@ -311,19 +307,24 @@ void MuViNESolver::BuildModel() {
             sum_c6 += x_mn_uvi_[m][n][u][v][order];
             for (int other_order = 0; other_order < ip_->GetPortCount(v);
                  ++other_order) {
+              // Do not map (m, n) on both (u, v) and (v, u).
               constraints_.add(
                   IloIfThen(env_, x_mn_uvi_[m][n][u][v][order] == 1,
                             x_mn_uvi_[m][n][v][u][other_order] == 0));
               constraints_.add(
                   IloIfThen(env_, x_mn_uvi_[m][n][v][u][other_order] == 1,
                             x_mn_uvi_[m][n][u][v][order] == 0));
+              // If (u, v, order) is activated then do not activate any of (v,
+              // u, other_order).
               constraints_.add(
                   gamma_uvi_[u][v][order] + gamma_uvi_[v][u][other_order] <= 1);
             }
           }
+          // (6)
           constraints_.add(sum_c6 <= 1);
         }
       }
+      // (5)
       constraints_.add(sum_c5 >= 1);
     }
   }
@@ -420,14 +421,14 @@ void MuViNESolver::BuildModel() {
     }
   }
 
-  // Constraint (13), (14), (15)
+  // Constraint (13), (14)
   for (int p = 0; p < otn_->node_count(); ++p) {
     auto& p_neighbors = otn_->adj_list()->at(p);
     for (auto end_point : p_neighbors) {
       int q = end_point.node_id();
       for (int k = 0; k < max_k_; ++k) {
         for (int j = 0; j < m_pq_k_[p][q][k]; ++j) {
-          // (15)
+          // (14)
           constraints_.add(zeta_pq_kj_[p][q][k][j] + omega_pq_kj_[p][q][k][j] <=
                            1);
           IloIntExpr sum(env_);
@@ -437,9 +438,6 @@ void MuViNESolver::BuildModel() {
               for (int order = 0; order < ip_->GetPortCount(u); ++order) {
                 sum +=
                     z_uvi_pqkj_[u][v][order][p][q][k][j] * b_uvi_[u][v][order];
-                // (14)
-                // constraints_.add(zeta_pq_kj_[p][q][k][j] <=
-                //                 z_uvi_pqkj_[u][v][order][p][q][k][j]);
               }
             }
           }
