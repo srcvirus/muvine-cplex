@@ -111,17 +111,12 @@ void VNESolutionBuilder::PrintNewOTNModules(const char *filename) {
             otn_topology_->GetNumModulesOnEdge(p, q, k);
         for (int j = 0; j < kNumModulesOnLink; ++j) {
           if (fabs(cplex.getValue(zeta_pq_kj[p][q][k][j]) - 0) < EPS) continue;
-          printf("zeta_pq_kj[%d][%d][%d][%d] = 1\n", p, q, k, j);
+          DEBUG("zeta_pq_kj[%d][%d][%d][%d] = 1\n", p, q, k, j);
           for (int l = 0; l < kNumLambdas; ++l) {
             if (fabs(cplex.getValue(phi_pqkj_l[p][q][k][j][l]) - 0) < EPS)
               continue;
-            printf("phi_pqkj_l[%d][%d][%d][%d][%d] = 1\n", p, q, k, j, l);
+            DEBUG("phi_pqkj_l[%d][%d][%d][%d][%d] = 1\n", p, q, k, j, l);
             auto &dwdm_path = otn_link_mapping_->edge_map[ip_edge_t(p, q, 0)];
-            for (auto it = otn_link_mapping_->edge_map.begin();
-                 it != otn_link_mapping_->edge_map.end(); ++it) {
-              printf("%d %d %d\n", it->first.first, it->first.second,
-                     it->second.size());
-            }
             for (auto dwdm_link : dwdm_path) {
               int a = dwdm_link.first, b = dwdm_link.second;
               if (fabs(cplex.getValue(psi_pqkj_abl[p][q][k][j][a][b][l]) - 1) <
