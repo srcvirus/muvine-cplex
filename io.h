@@ -85,8 +85,6 @@ unique_ptr<configuration> ParseConfigurationFile(const char* filename) {
       config->ip_node_mapping_file = value;
     } else if (key == "otn_link_mapping_file") {
       config->otn_link_mapping_file = value;
-    } else if (key == "otn_module_mapping_file") {
-      config->otn_module_mapping_file = value;
     } else if (key == "otn_node_mapping_file") {
       config->otn_node_mapping_file = value;
     }
@@ -101,7 +99,9 @@ unique_ptr<IPGraph> InitializeIPGraphFromFile(const char* filename) {
     return nullptr;
   }
   unique_ptr<IPGraph> graph(new IPGraph());
-  node_count = std::stoi(csv_vector->at(0)[0]);
+  node_count = std::stoi(csv_vector->at(0)[0].c_str());
+  edge_count = std::stoi(csv_vector->at(0)[1].c_str());
+  graph->SetNodeCount(node_count);
   for (int i = 1; i < csv_vector->size(); ++i) {
     const auto& row = csv_vector->at(i);
 
@@ -127,58 +127,80 @@ unique_ptr<OTNGraph> InitializeOTNGraphFromFile(const char* filename) {
   // The first line is formatted as:
   // num_nodes,num_links,k,<k entries for module capacities>,<k entries for
   // module cost>.
+  int row_offset = 0;
+  node_count = std::stoi(csv_vector->at(0)[0].c_str());
+  edge_count = std::stoi(csv_vector->at(0)[1].c_str());
+  graph->SetNodeCount(node_count);
   num_module_types = std::stoi(csv_vector->at(0)[2].c_str());
   for (int i = 0; i < num_module_types; ++i) {
-    int capacity_k = std::stoi(csv_vector->at(0)[3 + i].c_str());
-    int cost_k = std::stoi(csv_vector->at(0)[3 + i + num_module_types].c_str());
-    graph->module_capacities()->push_back(capacity_k);
-    graph->module_cost()->push_back(cost_k);
+    int capacity_k = std::stoi(csv_vector->at(row_offset)[3 + i].c_str());
+    int cost_k = std::stoi(csv_vector->at(row_offset)[3 + i + num_module_types].c_str());
+    graph->interface_info()->emplace_back(capacity_k, cost_k);
   }
+  ++row_offset;
 
-  std::vector<std::vector<int>> module_res_capacities;
-  for (int i = 1; i < csv_vector->size(); ++i) {
-    module_res_capacities.resize(num_module_types);
+  graph->interfaces_installed()->resize(
+      node_count, std::vector<int>(num_module_types, 0));
+  // The first line is followed by num_node lines, each line is formatted as
+  // <node_id>,<num_intfs_type_0>,<num_intfs_type1>,...,<num_intfs_type_k>.
+  for (int i = row_offset; i < row_offset + node_count; ++i) {
+    const auto& row = csv_vector->at(i);
+    int node_id = std::stoi(row[0].c_str());
+    for (int k = 1; k < row.size(); ++k) {
+      int num_intfs_k = std::stoi(row[k].c_str());
+      graph->interfaces_installed()->at(node_id)[k - 1] = num_intfs_k;
+    }
+  }
+  row_offset += node_count;
+
+  for (int i = row_offset; i < csv_vector->size(); ++i) {
     const auto& row = csv_vector->at(i);
 
     // Each line has the following format:
-    // SourceID,DestID,<k entries for number of modules>.
+    // SourceID,DestID,k,src_intfs_idx,dst_intfs_idx,bw,cost.
     int p = std::stoi(row[0].c_str());
     int q = std::stoi(row[1].c_str());
-    std::vector<int> num_modules;
-    for (int j = 0; j < num_module_types; ++j) {
-      int num_modules_installed = std::stoi(row[2 + j].c_str());
-      module_res_capacities[j].resize(num_modules_installed,
-                                      graph->module_capacities()->at(j));
-      num_modules.push_back(num_modules_installed);
-    }
-    graph->AddEdge(p, q, num_modules, module_res_capacities);
+    int k = std::stoi(row[2].c_str());
+    int j = std::stoi(row[3].c_str());
+    int l = std::stoi(row[4].c_str());
+    long bw = std::stol(row[5].c_str());
+    int c = std::stoi(row[6].c_str());
+    graph->AddEdge(p, q, k, j, l, bw, c);
   }
   return std::move(graph);
 }
 
 unique_ptr<DWDMGraph> InitializeDWDMGraphFromFile(const char* filename) {
-  int node_count = 0, edge_count = 0, num_wavelengths = 0,
-      wavelength_capacity = 0;
+  int node_count = 0, edge_count = 0, num_wavelengths = 0;
+  long wavelength_capacity = 0;
   csv_vector_ptr_t csv_vector = ReadCSVFile(filename);
   if (csv_vector.get() == NULL) return nullptr;
   unique_ptr<DWDMGraph> graph(new DWDMGraph());
+  node_count = std::stoi(csv_vector->at(0)[0].c_str());
+  edge_count = std::stoi(csv_vector->at(0)[1].c_str());
 
   // The first line is formatted as:
   // num_nodes,num_link,num_wl_per_fiber,wl_capacity.
   num_wavelengths = std::stoi(csv_vector->at(0)[2].c_str());
   wavelength_capacity = std::stoi(csv_vector->at(0)[3].c_str());
-  std::vector<bool> lambda_mask(num_wavelengths, true);
+  std::vector<long> lambda_residual_capacity(num_wavelengths, 
+      wavelength_capacity);
   graph->num_wavelengths() = num_wavelengths;
   graph->wavelength_capacity() = wavelength_capacity;
+  graph->SetNodeCount(node_count);
 
   for (int i = 1; i < csv_vector->size(); ++i) {
     // Each line has the following format:
-    // SourceID,DestID,Unit cost of a fiber.
+    // SourceID,DestID,Unit cost of using a wavelength on a fiber,a vector
+    // contaiing residual capacity of each wavelength on the fiber.
     auto row = csv_vector->at(i);
     int a = std::stoi(row[0].c_str());
     int b = std::stoi(row[1].c_str());
     int c = std::stoi(row[2].c_str());
-    graph->AddEdge(a, b, lambda_mask, c);
+    for (int j = 3; j < 3 + num_wavelengths; ++j) {
+      lambda_residual_capacity[j - 3] = std::stoi(row[j].c_str());
+    }
+    graph->AddEdge(a, b, lambda_residual_capacity, c);
   }
   return std::move(graph);
 }
@@ -238,8 +260,9 @@ unique_ptr<OverlayMapping<otn_edge_map_t>> InitializeIPOTNMappingFromFile(
     int q = std::stoi(row[4].c_str());
     int k = std::stoi(row[5].c_str());
     int j = std::stoi(row[6].c_str());
+    int l = std::stoi(row[7].c_str());
     ip_edge_t overlay_link(u, v, order);
-    otn_edge_t underlay_link(p, q, k, j);
+    otn_edge_t underlay_link(p, q, k, j, l);
     if (mapping->edge_map.find(overlay_link) == mapping->edge_map.end()) {
       mapping->edge_map[overlay_link] = otn_path_t();
     }
@@ -274,45 +297,20 @@ unique_ptr<OverlayMapping<dwdm_edge_map_t>> InitializeOTNDWDMMappingFromFile(
     int q = std::stoi(row[1].c_str());
     int k = std::stoi(row[2].c_str());
     int j = std::stoi(row[3].c_str());
-    int a = std::stoi(row[4].c_str());
-    int b = std::stoi(row[5].c_str());
-    int l = std::stoi(row[6].c_str());
-    otn_edge_t overlay_link(p, q, k, j);
+    int l = std::stoi(row[4].c_str());
+    int a = std::stoi(row[5].c_str());
+    int b = std::stoi(row[6].c_str());
+    int ll = std::stoi(row[7].c_str());
+    otn_edge_t overlay_link(p, q, k, j, l);
     dwdm_edge_t underlay_link(a, b, l);
     if (mapping->edge_map.find(overlay_link) == mapping->edge_map.end()) {
       mapping->edge_map[overlay_link] = dwdm_path_t();
     }
     mapping->edge_map[overlay_link].push_back(underlay_link);
-    DEBUG("Current embedding path length of (%d, %d, %d, %d) is %u\n", p, q, k,
-          j, mapping->edge_map[overlay_link].size());
+    DEBUG("Current embedding path length of (%d, %d, %d, %d, %d) is %u\n", p, q, k,
+          j, l, mapping->edge_map[overlay_link].size());
   }
   DEBUG("Embedding of %d links read successfully\n", mapping->edge_map.size());
-  return std::move(mapping);
-}
-
-unique_ptr<OverlayMapping<ip_edge_map_t>> InitializeOTNLinkMappingFromFile(
-    const char* otn_lmap_file) {
-  DEBUG("Reading OTN Link mapping from: %s\n", otn_lmap_file);
-  unique_ptr<OverlayMapping<ip_edge_map_t>> mapping(
-      new OverlayMapping<ip_edge_map_t>());
-  csv_vector_ptr_t csv_vector = ReadCSVFile(otn_lmap_file);
-  if (csv_vector.get() == nullptr) return nullptr;
-  for (int i = 0; i < csv_vector->size(); ++i) {
-    const auto& row = csv_vector->at(i);
-    int p = std::stoi(row[0].c_str());
-    int q = std::stoi(row[1].c_str());
-    int a = std::stoi(row[2].c_str());
-    int b = std::stoi(row[3].c_str());
-    ip_edge_t overlay_link(p, q, 0);
-    ip_edge_t reverse_overlay_link(q, p, 0);
-    ip_edge_t underlay_link(a, b, 0);
-    mapping->edge_map[overlay_link].push_back(underlay_link);
-    mapping->edge_map[reverse_overlay_link].push_back(underlay_link);
-    DEBUG("Current OTN mapping path length of (%d, %d) is %u\n", p, q,
-          mapping->edge_map[overlay_link].size());
-  }
-  DEBUG("Mapping of %u OTN links read successfully\n",
-        mapping->edge_map.size());
   return std::move(mapping);
 }
 

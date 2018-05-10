@@ -55,7 +55,7 @@ void VNESolutionBuilder::PrintNewIPLinks(const char *filename) {
   FILE *outfile = nullptr;
   if (filename) outfile = fopen(filename, "w");
   const IloCplex &cplex = vne_solver_ptr_->cplex();
-  const IloIntVar7dArray &z_uvi_pqkj = vne_solver_ptr_->z_uvi_pqkj();
+  const IloIntVar8dArray &z_uvi_pqkjl = vne_solver_ptr_->z_uvi_pqkjl();
   const IloIntVar3dArray &gamma_uvi = vne_solver_ptr_->gamma_uvi();
   for (int u = 0; u < ip_topology_->node_count(); ++u) {
     for (int v = 0; v < ip_topology_->node_count(); ++v) {
@@ -64,24 +64,22 @@ void VNESolutionBuilder::PrintNewIPLinks(const char *filename) {
         if (fabs(cplex.getValue(gamma_uvi[u][v][order]) - 0) < EPS) continue;
         printf("gamma_uvi[%d][%d][%d] = 1\n", u, v, order);
         for (int p = 0; p < otn_topology_->node_count(); ++p) {
-          const auto &p_neighbors = otn_topology_->adj_list()->at(p);
-          for (const auto end_point : p_neighbors) {
-            int q = end_point.node_id();
-            const int kNumModuleTypes =
-                otn_topology_->module_capacities()->size();
+          for (int q = 0; q < otn_topology_->node_count(); ++q) {
+            if (p == q) continue;
+            const int kNumModuleTypes = otn_topology_->interface_info()->size();
             for (int k = 0; k < kNumModuleTypes; ++k) {
-              const int kNumModulesOnLink =
-                  otn_topology_->GetNumModulesOnEdge(p, q, k);
-              for (int j = 0; j < kNumModulesOnLink; ++j) {
-                if (fabs(cplex.getValue(z_uvi_pqkj[u][v][order][p][q][k][j]) -
-                         1) < EPS) {
-                  printf(
-                      "New IP link (%d, %d, %d) --> OTN link (%d, %d, %d, "
-                      "%d)\n",
-                      u, v, order, p, q, k, j);
-                  if (outfile) {
-                    fprintf(outfile, "%d,%d,%d,%d,%d,%d,%d\n", u, v, order, p,
-                            q, k, j);
+              for (int j = 0; j < otn_topology_->interfaces_installed()->at(p)[k]; ++j) {
+                for (int l = 0; l < otn_topology_->interfaces_installed()->at(q)[k]; ++l) {
+                  if (fabs(cplex.getValue(z_uvi_pqkjl[u][v][order][p][q][k][j][l]) -
+                           1) < EPS) {
+                    printf(
+                        "New IP link (%d, %d, %d) --> OTN link (%d, %d, %d, "
+                        "%d, %d)\n",
+                        u, v, order, p, q, k, j, l);
+                    if (outfile) {
+                      fprintf(outfile, "%d,%d,%d,%d,%d,%d,%d,%d\n", u, v, order, p,
+                              q, k, j, l);
+                    }
                   }
                 }
               }
@@ -94,39 +92,41 @@ void VNESolutionBuilder::PrintNewIPLinks(const char *filename) {
   if (outfile) fclose(outfile);
 }
 
-void VNESolutionBuilder::PrintNewOTNModules(const char *filename) {
+void VNESolutionBuilder::PrintNewOTNLinks(const char *filename) {
   FILE *outfile = nullptr;
   if (filename) outfile = fopen(filename, "r");
   const IloCplex &cplex = vne_solver_ptr_->cplex();
-  const IloIntVar4dArray &zeta_pq_kj = vne_solver_ptr_->zeta_pq_kj();
-  const IloIntVar5dArray &phi_pqkj_l = vne_solver_ptr_->phi_pqkj_l();
-  const IloIntVar7dArray &psi_pqkj_abl = vne_solver_ptr_->psi_pqkj_abl();
-  const int kNumModuleTypes = otn_topology_->module_capacities()->size();
+  const IloIntVar5dArray &zeta_pq_kjl = vne_solver_ptr_->zeta_pq_kjl();
+  const IloIntVar6dArray &phi_pqkjl_l = vne_solver_ptr_->phi_pqkjl_l();
+  const IloIntVar8dArray &psi_pqkjl_abl = vne_solver_ptr_->psi_pqkjl_abl();
+  const int kNumModuleTypes = otn_topology_->interface_info()->size();
   const int kNumLambdas = dwdm_topology_->num_wavelengths();
   for (int p = 0; p < otn_topology_->node_count(); ++p) {
     for (int q = 0; q < otn_topology_->node_count(); ++q) {
       if (p == q) continue;
       for (int k = 0; k < kNumModuleTypes; ++k) {
-        const int kNumModulesOnLink =
-            otn_topology_->GetNumModulesOnEdge(p, q, k);
-        for (int j = 0; j < kNumModulesOnLink; ++j) {
-          if (fabs(cplex.getValue(zeta_pq_kj[p][q][k][j]) - 0) < EPS) continue;
-          DEBUG("zeta_pq_kj[%d][%d][%d][%d] = 1\n", p, q, k, j);
-          for (int l = 0; l < kNumLambdas; ++l) {
-            if (fabs(cplex.getValue(phi_pqkj_l[p][q][k][j][l]) - 0) < EPS)
-              continue;
-            DEBUG("phi_pqkj_l[%d][%d][%d][%d][%d] = 1\n", p, q, k, j, l);
-            auto &dwdm_path = otn_link_mapping_->edge_map[ip_edge_t(p, q, 0)];
-            for (auto dwdm_link : dwdm_path) {
-              int a = dwdm_link.first, b = dwdm_link.second;
-              if (fabs(cplex.getValue(psi_pqkj_abl[p][q][k][j][a][b][l]) - 1) <
-                  EPS) {
-                printf(
-                    "New OTN Module %d of type %d on (%d, %d) --> DWDM Link "
-                    "(%d, %d) with Lambda = %d\n",
-                    j, k, p, q, a, b, l);
-                if (outfile) {
-                  printf("%d,%d,%d,%d,%d,%d,%d\n", p, q, k, j, a, b, l);
+        for (int j = 0; j < otn_topology_->interfaces_installed()->at(p)[k]; ++j) {
+          for (int l = 0; l < otn_topology_->interfaces_installed()->at(q)[k]; ++l) {
+            if (fabs(cplex.getValue(zeta_pq_kjl[p][q][k][j][l]) - 0) < EPS) continue;
+            DEBUG("zeta_pq_kj[%d][%d][%d][%d] = 1\n", p, q, k, j);
+            for (int ll = 0; ll < kNumLambdas; ++ll) {
+              if (fabs(cplex.getValue(phi_pqkjl_l[p][q][k][j][l][ll]) - 0) < EPS)
+                continue;
+              DEBUG("phi_pqkj_l[%d][%d][%d][%d][%d] = 1\n", p, q, k, j, l);
+              for (int a = 0; a < dwdm_topology_->node_count(); ++a) {
+                auto& a_neighbors = dwdm_topology_->adj_list()->at(a);
+                for (auto& aend_point : a_neighbors) {
+                  int b = aend_point.node_id();                  
+                  if (fabs(cplex.getValue(psi_pqkjl_abl[p][q][k][j][l][a][b][ll]) - 1) <
+                    EPS) {
+                    printf(
+                        "New OTN Module %d of type %d on (%d, %d) --> DWDM Link "
+                        "(%d, %d) with Lambda = %d\n",
+                        j, k, p, q, a, b, l);
+                    if (outfile) {
+                      printf("%d,%d,%d,%d,%d,%d,%d\n", p, q, k, j, a, b, l);
+                    }
+                  }
                 }
               }
             }

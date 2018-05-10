@@ -12,15 +12,6 @@ using std::unique_ptr;
 const std::string kUsage =
     "./muvine "
     "--config_file=<config_file>\n";
-/*
-    "--otn_topology_file=<otn_topology_file>\n"
-    "\t--ip_topology_file=<ip_topology_file>\n"
-    "\t--ip_node_mapping_file=<ip_mapping_file>\n"
-    "\t--ip_link_mapping_file=<ip_link_mapping_file>\n"
-    "\t--ip_port_info_file=<ip_port_info_file>\n"
-    "\t--vn_topology_file=<vn_topology_file>\n"
-    "\t--vn_location_file=<vn_location_file>\n";
-*/
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -28,6 +19,7 @@ int main(int argc, char* argv[]) {
     printf("%s\n", kUsage.c_str());
     return 1;
   }
+
   // Parse the command line arguments.
   using std::string;
   unique_ptr<std::map<string, string>> arg_map(ParseArgs(argc, argv).release());
@@ -37,6 +29,9 @@ int main(int argc, char* argv[]) {
        ++arg_map_it) {
     if (arg_map_it->first == "--config_file") {
       config_file = arg_map_it->second;
+    } else if (arg_map_it->first == "--help") {
+      printf("%s\n", kUsage.c_str());
+      return 0;
     } else {
       printf("Unrecognized command line option: %s\n",
              arg_map_it->first.c_str());
@@ -62,12 +57,8 @@ int main(int argc, char* argv[]) {
           .release());
   unique_ptr<OverlayMapping<dwdm_edge_map_t>> otn_dwdm_mapping(
       InitializeOTNDWDMMappingFromFile(config->otn_node_mapping_file.c_str(),
-                                       config->otn_module_mapping_file.c_str())
+                                       config->otn_link_mapping_file.c_str())
           .release());
-  unique_ptr<OverlayMapping<ip_edge_map_t>> otn_link_mapping(
-      InitializeOTNLinkMappingFromFile(config->otn_link_mapping_file.c_str())
-          .release());
-
   unique_ptr<IPGraph> vn_topology(
       InitializeIPGraphFromFile(config->vn_topology_file.c_str()).release());
   unique_ptr<std::vector<std::vector<int>>> location_constraint(
@@ -87,7 +78,7 @@ int main(int argc, char* argv[]) {
   unique_ptr<MuViNESolver> muvine_solver(new MuViNESolver(
       ip_topology.get(), otn_topology.get(), dwdm_topology.get(),
       vn_topology.get(), location_constraint.get(), ip_otn_mapping.get(),
-      otn_dwdm_mapping.get(), otn_link_mapping.get()));
+      otn_dwdm_mapping.get()));
   auto start_time = std::chrono::high_resolution_clock::now();
   muvine_solver->BuildModel();
   bool success = muvine_solver->Solve();
@@ -103,7 +94,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Failure!" << std::endl;
   VNESolutionBuilder vne_sbuilder(muvine_solver.get(), ip_topology.get(),
                                   otn_topology.get(), dwdm_topology.get(),
-                                  vn_topology.get(), otn_link_mapping.get());
+                                  vn_topology.get());
 
   // Print solution time (in seconds) to file.
   FILE* sol_time_file =
@@ -122,7 +113,7 @@ int main(int argc, char* argv[]) {
         (config->vn_topology_file + ".emap").c_str());
     vne_sbuilder.PrintNewIPLinks(
         (config->vn_topology_file + ".new_ip").c_str());
-    vne_sbuilder.PrintNewOTNModules(
+    vne_sbuilder.PrintNewOTNLinks(
         (config->vn_topology_file + ".new_otn").c_str());
   }
   return 0;

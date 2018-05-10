@@ -32,7 +32,6 @@ typedef struct configuration {
   string ip_port_info_file;
   string ip_node_mapping_file;
   string otn_link_mapping_file;
-  string otn_module_mapping_file;
   string otn_node_mapping_file;
 } configuration;
 
@@ -43,6 +42,10 @@ struct matrix_t {
   matrix_t() {}
   matrix_t(int rows, int columns, T fill_value = T())
       : matrix(rows, std::vector<T>(columns, fill_value)) {}
+  const int num_rows() const { return this->matrix.size(); }
+  const int num_columns() const { 
+    this->matrix.size() > 0 ? this->matrix[0].size() : 0; 
+  }
 };
 
 // A generic edge endpoint. At a bare minimum an edge endpoint consists of the
@@ -51,7 +54,7 @@ class EdgeEndpoint {
  public:
   EdgeEndpoint() : node_id_(NIL) {}
   EdgeEndpoint(int node_id) : node_id_(node_id) {}
-  const int& node_id() const { return node_id_; }
+  const int node_id() const { return node_id_; }
 
  protected:
   int node_id_;
@@ -98,20 +101,40 @@ class IPEdgeEndpoint : public EdgeEndpoint {
 class OTNEdgeEndpoint : public EdgeEndpoint {
  public:
   OTNEdgeEndpoint() : EdgeEndpoint() {}
-  OTNEdgeEndpoint(int n, const std::vector<int>& nmk,
-                  const std::vector<std::vector<int>>& mrc)
-      : EdgeEndpoint(n), num_modules_k_(nmk), module_res_cap_(mrc) {}
-  std::vector<int>& num_modules_k() { return num_modules_k_; }
-  std::vector<std::vector<int>>& module_res_cap() { return module_res_cap_; }
+  OTNEdgeEndpoint(int n, int k, int source_idx, int dst_idx, long bw, int c)
+      : EdgeEndpoint(n), 
+      intf_type_(k), 
+      src_intf_(source_idx), 
+      dst_intf_(dst_idx), 
+      bandwidth_(bw), 
+      residual_bandwidth_(bw),
+      cost_(c) {}
+
+  int& intf_type() { return intf_type_; }
+  int& src_intf() { return src_intf_; }
+  int& dst_intf() { return dst_intf_; }
+  long& bandwidth() { return bandwidth_; }
+  long& residual_bandwidth() { return residual_bandwidth_; }
+  int& cost() { return cost_; }
 
  private:
-  // num_modules_k_[k] is the number of modules of type k installed on this
-  // OTN link.
-  std::vector<int> num_modules_k_;
+  // Type of the OTN interface used to establish the OTN link.
+  int intf_type_;
 
-  // module_res_cap_[k][j] is the residual capacity left for the j-th instance
-  // of module type k.
-  std::vector<std::vector<int>> module_res_cap_;
+  // Index of the source interface.
+  int src_intf_;
+
+  // Index of the destination interface.
+  int dst_intf_;
+
+  // Max bandwidth capacity of the link.
+  long bandwidth_;
+
+  // Residual bandwidth of this OTN link.
+  long residual_bandwidth_;
+
+  // Cost of allocating unit bandwidth.
+  int cost_;
 };
 
 // DWDM network specific edge endpoint that extends EdgeEndpoint class. Contains
@@ -119,21 +142,20 @@ class OTNEdgeEndpoint : public EdgeEndpoint {
 class DWDMEdgeEndpoint : public EdgeEndpoint {
  public:
   DWDMEdgeEndpoint() : EdgeEndpoint() {}
-  DWDMEdgeEndpoint(int node_id, const std::vector<bool>& lambda_mask, int c)
-      : EdgeEndpoint(node_id), is_lambda_free_(lambda_mask), cost_(c) {}
-  std::vector<bool>& is_lambda_free() { return is_lambda_free_; }
+  DWDMEdgeEndpoint(int node_id, const std::vector<long>& lambda_res_bw, int c)
+      : EdgeEndpoint(node_id), 
+      lambda_residual_bandwidth_(lambda_res_bw), 
+      cost_(c) {}
+  std::vector<long>& lambda_residual_bandwidth() { return lambda_residual_bandwidth_; }
   int& cost() { return cost_; }
 
  private:
-  // is_lambda_free_[l] is true only if wavelength l is available for
-  // allocation on this DWDM link.
-  std::vector<bool> is_lambda_free_;
+  // lambda_residual_bandwidth[l] is the residual bandwidth for wavelength l
+  // that can be used to multiplex more OTN connections.
+  std::vector<long> lambda_residual_bandwidth_;
 
   // Cost of using a wavelength from this DWDM link.
   int cost_;
-
-  // The set of wavelengths on this DWDM link.
-  std::vector<int> w_;
 };
 
 // Represents an IP network where the only resources are bandwidth. In the
@@ -150,11 +172,16 @@ class IPGraph {
   }
 
   // Accessor methods.
-  int node_count() const { return node_count_; }
-  int edge_count() const { return edge_count_; }
+  int node_count() { return node_count_; }
+  int edge_count() { return edge_count_; }
   const std::vector<std::vector<IPEdgeEndpoint>>* adj_list() const {
     return static_cast<const std::vector<std::vector<IPEdgeEndpoint>>*>(
         adj_list_.get());
+  }
+
+  void SetNodeCount(int node_count) {
+    this->node_count_ = node_count;
+    adj_list_->resize(node_count);
   }
 
   // u and v are 0-based identifiers of an edge endpoint. An edge is
@@ -269,30 +296,50 @@ class OTNGraph {
   OTNGraph() {
     adj_list_ = unique_ptr<std::vector<std::vector<OTNEdgeEndpoint>>>(
         new std::vector<std::vector<OTNEdgeEndpoint>>());
-    module_capacities_ = unique_ptr<std::vector<int>>(new std::vector<int>());
-    module_cost_ = unique_ptr<std::vector<int>>(new std::vector<int>());
+    interface_info_ = unique_ptr<std::vector<interface_metadata>>(
+        new std::vector<interface_metadata>());
+    interfaces_installed_ = 
+      unique_ptr<std::vector<std::vector<int>>>(new std::vector<std::vector<int>>());
     node_count_ = edge_count_ = 0;
   }
 
+  typedef struct interface_metadata {
+    long capacity;
+    int cost;
+    interface_metadata() : capacity(0), cost(INF) {}
+    interface_metadata(int cap, int c): capacity(cap), cost(c) {}
+  } interface_metadata;
+
   // Accessor methods.
-  int node_count() const { return node_count_; }
-  int edge_count() const { return edge_count_; }
-  const std::vector<std::vector<OTNEdgeEndpoint>>* adj_list() const {
-    return static_cast<const std::vector<std::vector<OTNEdgeEndpoint>>*>(
+  int node_count() { return node_count_; }
+  int edge_count() { return edge_count_; }
+  std::vector<std::vector<OTNEdgeEndpoint>>* adj_list() {
+    return static_cast<std::vector<std::vector<OTNEdgeEndpoint>>*>(
         adj_list_.get());
   }
-  std::vector<int>* module_capacities() {
-    return static_cast<std::vector<int>*>(module_capacities_.get());
+  std::vector<interface_metadata>* interface_info() {
+    return static_cast<std::vector<interface_metadata>*>(interface_info_.get());
   }
-  std::vector<int>* module_cost() {
-    return static_cast<std::vector<int>*>(module_cost_.get());
+
+  std::vector<std::vector<int>>* interfaces_installed() {
+    return static_cast<std::vector<std::vector<int>>*>(
+        interfaces_installed_.get());
+  }
+
+  int GetInterfaceCount(int node_id, int k) const {
+    return this->interfaces_installed_->at(node_id)[k];
+  }
+
+  void SetNodeCount(int node_count) {
+    this->node_count_ = node_count;
+    this->adj_list_->resize(node_count);
   }
 
   // u and v are 0-based identifiers of an edge endpoint. An edge is
   // bi-directional, i.e., calling Graph::AddEdge with u = 1, v = 3 will add
   // both (1, 3) and (3, 1) in the graph.
-  bool AddEdge(int u, int v, const std::vector<int>& num_modules_k,
-               const std::vector<std::vector<int>>& module_res_cap) {
+  bool AddEdge(int u, int v, int k, int src_idx, int dst_idx, long bw, 
+      int cost) {
     if (adj_list_->size() < u + 1) adj_list_->resize(u + 1);
     if (adj_list_->size() < v + 1) adj_list_->resize(v + 1);
     auto& neighbors = adj_list_->at(u);
@@ -300,45 +347,29 @@ class OTNGraph {
       if (end_point.node_id() == v) return false;
     }
     adj_list_->at(u).push_back(
-        OTNEdgeEndpoint(v, num_modules_k, module_res_cap));
+        OTNEdgeEndpoint(v, k, src_idx, dst_idx, bw, cost));
     adj_list_->at(v).push_back(
-        OTNEdgeEndpoint(u, num_modules_k, module_res_cap));
+        OTNEdgeEndpoint(u, k, dst_idx, src_idx, bw, cost));
     ++edge_count_;
     node_count_ = adj_list_->size();
     return true;
   }
 
-  int GetModuleCost(int module_type) const {
-    if (module_type >= module_cost_->size()) return INF;
-    return module_cost_->at(module_type);
-  }
-
-  long GetModuleResidualCapacity(int u, int v, int module_type,
-                                 int module_instance) const {
-    auto& neighbors = adj_list_->at(u);
-    for (auto& end_point : neighbors) {
-      if (end_point.node_id() == v)
-        return end_point.module_res_cap()[module_type][module_instance];
-    }
-    return 0;
-  }
-
-  int GetNumModulesOnEdge(int u, int v, int module_type) {
-    auto& neighbors = adj_list_->at(u);
-    for (auto& end_point : neighbors) {
-      if (end_point.node_id() == v)
-        return end_point.num_modules_k()[module_type];
-    }
-    return 0;
+  int GetInterfaceCost(int interface_type) const {
+    if (interface_type >= interface_info_->size()) return INF;
+    return interface_info_->at(interface_type).cost;
   }
 
   inline int GetNodeDegree(int u) const { return adj_list_->at(u).size(); }
-  virtual ~OTNGraph() { adj_list_.reset(); }
+  virtual ~OTNGraph() { 
+    adj_list_.reset(); 
+    interface_info_.reset();
+  }
 
  private:
   unique_ptr<std::vector<std::vector<OTNEdgeEndpoint>>> adj_list_;
-  unique_ptr<std::vector<int>> module_capacities_;
-  unique_ptr<std::vector<int>> module_cost_;
+  unique_ptr<std::vector<interface_metadata>> interface_info_;
+  unique_ptr<std::vector<std::vector<int>>> interfaces_installed_;
   int node_count_, edge_count_;
 };
 
@@ -355,41 +386,48 @@ class DWDMGraph {
   int node_count() const { return node_count_; }
   int edge_count() const { return edge_count_; }
   int& num_wavelengths() { return num_wavelengths_; }
-  int& wavelength_capacity() { return wavelength_capacity_; }
-  const std::vector<std::vector<DWDMEdgeEndpoint>>* adj_list() const {
-    return static_cast<const std::vector<std::vector<DWDMEdgeEndpoint>>*>(
+  long& wavelength_capacity() { return wavelength_capacity_; }
+  std::vector<std::vector<DWDMEdgeEndpoint>>* adj_list() {
+    return static_cast<std::vector<std::vector<DWDMEdgeEndpoint>>*>(
         adj_list_.get());
+  }
+
+  void SetNodeCount(int node_count) {
+    this->node_count_ = node_count;
+    this->adj_list_->resize(node_count);
   }
 
   // u and v are 0-based identifiers of an edge endpoint. An edge is
   // bi-directional, i.e., calling Graph::AddEdge with u = 1, v = 3 will add
   // both (1, 3) and (3, 1) in the graph.
-  bool AddEdge(int u, int v, const std::vector<bool>& lambda_mask, int cost) {
+  bool AddEdge(int u, int v, const std::vector<long>& lambda_res_bw, int cost) {
     if (adj_list_->size() < u + 1) adj_list_->resize(u + 1);
     if (adj_list_->size() < v + 1) adj_list_->resize(v + 1);
     auto& neighbors = adj_list_->at(u);
     for (auto end_point : neighbors) {
       if (end_point.node_id() == v) return false;
     }
-    adj_list_->at(u).push_back(DWDMEdgeEndpoint(v, lambda_mask, cost));
-    adj_list_->at(v).push_back(DWDMEdgeEndpoint(u, lambda_mask, cost));
+    adj_list_->at(u).push_back(DWDMEdgeEndpoint(v, lambda_res_bw, cost));
+    adj_list_->at(v).push_back(DWDMEdgeEndpoint(u, lambda_res_bw, cost));
     ++edge_count_;
     node_count_ = adj_list_->size();
     return true;
   }
 
-  bool IsWavelengthAvailable(int u, int v, int lambda) {
+  bool IsWavelengthAvailable(int u, int v, int lambda, long bw_threshold = 0) {
     auto& neighbors = adj_list_->at(u);
     for (auto& end_point : neighbors) {
-      if (end_point.node_id() == v) return end_point.is_lambda_free()[lambda];
+      if (end_point.node_id() == v) 
+        return end_point.lambda_residual_bandwidth()[lambda] >= bw_threshold;
     }
     return false;
   }
 
-  std::vector<bool>& GetWavelengthMask(int u, int v) {
+  std::vector<long>& GetWavelengthResidualBw(int u, int v) {
     auto& neighbors = adj_list_->at(u);
     for (auto& end_point : neighbors) {
-      if (end_point.node_id() == v) return end_point.is_lambda_free();
+      if (end_point.node_id() == v) 
+        return end_point.lambda_residual_bandwidth();
     }
   }
 
@@ -399,7 +437,8 @@ class DWDMGraph {
 
  private:
   unique_ptr<std::vector<std::vector<DWDMEdgeEndpoint>>> adj_list_;
-  int node_count_, edge_count_, num_wavelengths_, wavelength_capacity_;
+  int node_count_, edge_count_, num_wavelengths_;
+  long wavelength_capacity_;
 };
 
 // Type definition for convenience.
@@ -426,26 +465,28 @@ typedef std::vector<ip_edge_t> ip_path_t;
 typedef std::map<ip_edge_t, ip_path_t> ip_edge_map_t;
 
 // Datastructure for an OTN link. first and second represent the endpoint OTN
-// nodes. Moreover, we also identify the specific module type and module
-// instance by module_type and module_instance, respectively.
+// nodes. Moreover, we also identify the specific interface type and interface
+// instance by interface_type and interface_instance, respectively.
 typedef struct otn_edge_t {
-  int first, second, module_type, module_instance;
-  otn_edge_t(int f, int s, int k, int j)
-      : first(f), second(s), module_type(k), module_instance(j) {}
+  int first, second, interface_type, src_idx, dst_idx;
+  otn_edge_t(int f, int s, int k, int j, int l)
+      : first(f), second(s), interface_type(k), src_idx(j), dst_idx(l) {}
   bool operator<(const otn_edge_t& e) const {
     if (first != e.first) return first < e.first;
     if (second != e.second) return second < e.second;
-    if (module_type != e.module_type) return module_type < e.module_type;
-    return module_instance < e.module_instance;
+    if (interface_type != e.interface_type) return interface_type < e.interface_type;
+    if (src_idx != e.src_idx) return src_idx < e.src_idx;
+    return dst_idx < e.dst_idx;
   }
   bool operator==(const otn_edge_t& e) const {
     return first == e.first && second == e.second &&
-           module_type == e.module_type && module_instance == e.module_instance;
+           interface_type == e.interface_type && 
+           src_idx == e.src_idx && dst_idx == e.dst_idx;
   }
 } otn_edge_t;
 
 // The following two are used for representing the mapping between an IP link
-// and an OTN path. An IP link is mapped to a sequence of OTN nodes and modules.
+// and an OTN path. An IP link is mapped to a sequence of OTN nodes and interfaces.
 typedef std::vector<otn_edge_t> otn_path_t;
 typedef std::map<ip_edge_t, otn_path_t> otn_edge_map_t;
 
@@ -465,7 +506,7 @@ typedef struct dwdm_edge_t {
 } dwdm_edge_t;
 
 // The following type defenitions are used to represent the mapping between an
-// OTN connection (i.e., a connection between two modules of a specific type)
+// OTN connection (i.e., a connection between two interfaces of a specific type)
 // over a DWDM path with continous wavelength.
 typedef std::vector<dwdm_edge_t> dwdm_path_t;
 typedef std::map<otn_edge_t, dwdm_path_t> dwdm_edge_map_t;
