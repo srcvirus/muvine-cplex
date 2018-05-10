@@ -324,6 +324,7 @@ void MuViNESolver::BuildModel() {
     // Constraint (1).
     constraints_.add(sum == 1);
   }
+  printf("Constraints (1), (2) added\n");
 
   // Constraint (3)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -333,6 +334,7 @@ void MuViNESolver::BuildModel() {
     }
     constraints_.add(sum <= 1);
   }
+  printf("Constraints (3) added\n");
 
   // Constraint (4), (5), (6)
   for (int m = 0; m < vn_->node_count(); ++m) {
@@ -377,7 +379,8 @@ void MuViNESolver::BuildModel() {
       // (5)
       constraints_.add(sum_c5 >= 1);
     }
-  }
+  }  
+  printf("Constraints (4), (5), (6) added\n");
 
   // Constraint (7)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -398,6 +401,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (7) added\n");
 
   // Constraint (8)
   for (int m = 0; m < vn_->node_count(); ++m) {
@@ -419,6 +423,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (8) added\n");
 
   // Constraint (9)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -433,6 +438,7 @@ void MuViNESolver::BuildModel() {
     }
     constraints_.add(sum <= ip_->GetPortCount(u));
   }
+  printf("Constraints (9) added\n");
 
   // Constraint (10)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -444,6 +450,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (10) added\n");
 
   // Constraint (11), (12)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -471,6 +478,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (11), (12) added\n");
 
   // Constraint (13), (15)
   for (int p = 0; p < otn_->node_count(); ++p) {
@@ -499,6 +507,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (13), (15) added\n");
 
   // Constraint (14).
   for (int p = 0; p < otn_->node_count(); ++p) {
@@ -517,6 +526,7 @@ void MuViNESolver::BuildModel() {
       constraints_.add(sum <= m_p_k_[p][k]);
     }
   }
+  printf("Constraints (14) added\n");
 
   // Constraint (16)
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -564,6 +574,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (16) added\n");
 
   // Constraint (17), (18)
   for (int p = 0; p < otn_->node_count(); ++p) {
@@ -596,6 +607,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (17), (18) added\n");
 
   // Constraint (20)
   for (int a = 0; a < dwdm_->node_count(); ++a) {
@@ -621,6 +633,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (20) added\n");
 
   // Constraint (21)
   for (int p = 0; p < otn_->node_count(); ++p) {
@@ -650,6 +663,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Constraints (21) added\n");
 
   // Objective function.
   // Component 1: Cost of embedding VLinks.
@@ -669,6 +683,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Objective component 1 added\n");
 
   // Component 2: Cost of creating new IP links.
   for (int u = 0; u < ip_->node_count(); ++u) {
@@ -692,6 +707,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Objective component 2 added\n");
 
   // Component 3: Cost of activating new modules, i.e., routing new wavelengths.
   for (int p = 0; p < otn_->node_count(); ++p) {
@@ -714,6 +730,7 @@ void MuViNESolver::BuildModel() {
       }
     }
   }
+  printf("Objective component 3 added\n");
   constraints_.add(objective_ > 0);
   model_.add(constraints_);
   model_.add(IloMinimize(env_, objective_));
