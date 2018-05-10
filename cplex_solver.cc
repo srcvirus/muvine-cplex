@@ -734,10 +734,12 @@ void MuViNESolver::BuildModel() {
   constraints_.add(objective_ > 0);
   model_.add(constraints_);
   model_.add(IloMinimize(env_, objective_));
+  printf("Everything added to the model.\n");
 }
 
 bool MuViNESolver::Solve() {
   int n_threads = sysconf(_SC_NPROCESSORS_ONLN);
+  printf("Number of logical cores available = %d\n", n_threads);
   if (n_threads < 64) n_threads = 64;
   cplex_.setParam(IloCplex::Threads, n_threads);
   cplex_.exportModel("muvine.lp");
