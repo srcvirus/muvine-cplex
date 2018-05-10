@@ -63,6 +63,7 @@ MuViNESolver::MuViNESolver(
     m_p_k_[p].resize(max_k_, 0);
     for (int k = 0; k < max_k_; ++k) {
       m_p_k_[p][k] = otn_->GetInterfaceCount(p, k);
+      DEBUG("m_p_k_[%d][%d] = %d\n", p, k, m_p_k_[p][k]);
     }
   }
 
@@ -76,7 +77,7 @@ MuViNESolver::MuViNESolver(
         q_pq_kjl_[p][q][k].resize(m_p_k_[p][k]);
         for (int j = 0; j < m_p_k_[p][k]; ++j) {
           q_pq_kjl_[p][q][k][j].resize(
-              m_p_k_[q][k], otn_->interface_info()->at(k).capacity);
+              m_p_k_[q][k], otn_->interface_info()->at(k).capacity, 0);
         }
       }
     }   
@@ -88,6 +89,8 @@ MuViNESolver::MuViNESolver(
       int l = end_point.dst_intf();
       long rbw = end_point.residual_bandwidth();
       q_pq_kjl_[p][q][k][j][l] = rbw;
+      DEBUG("q_pq_kjl_[%d][%d][%d][%d][%d] = %ld\n", 
+          p, q, k, j, l, q_pq_kjl_[p][q][k][j][l]);
     }
   }
   
